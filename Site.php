@@ -16,8 +16,12 @@ class Site {
 
     public function set($key, $value) {
         $this->db->query("CREATE TABLE IF NOT EXISTS site_settings (key TEXT PRIMARY KEY, value TEXT)"); // Ensure table exists
-        $sql = "INSERT INTO site_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value";
-        $this->db->query($sql, [$key, $value]);
+        $stmt = $this->db->query("SELECT key FROM site_settings WHERE key = ?", [$key]);
+        if ($stmt->fetch()) {
+            $this->db->query("UPDATE site_settings SET value = ? WHERE key = ?", [$value, $key]);
+        } else {
+            $this->db->query("INSERT INTO site_settings (key, value) VALUES (?, ?)", [$key, $value]);
+        }
     }
 
     // Static helper for easy access in views if needed (requires instantiation pattern, but we'll stick to instance for consistency with Course model or simple usage)

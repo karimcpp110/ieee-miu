@@ -1,0 +1,8 @@
+{
+    "name": "karimcpp110/ieee-miu",
+    "description": "IEEE MIU Website & LMS",
+    "type": "project",
+    "require": {
+        "php": ">=7.4"
+    }
+}

@@ -3,15 +3,61 @@
 class Database {
     private $pdo;
 
-    public function __construct($dbPath = __DIR__ . '/courses.db') {
-        try {
-            $this->pdo = new PDO("sqlite:" . $dbPath);
-            $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-            $this->initialize();
-        } catch (PDOException $e) {
-            die("Database connection failed: " . $e->getMessage());
+    public function __construct() {
+        // 1. Check for DATABASE_URL (for modern hosts)
+        $dbUrl = getenv('DATABASE_URL');
+        
+        // 2. Manual Config (EASY FOR INFINITYFREE)
+        // If you are on InfinityFree, fill these in and the site will use them!
+        $manual_host = ''; // 'fdb1033.awardspace.net'; // Commented out for local run
+        $manual_user = '4726137_db';
+        $manual_pass = 'gTQi92@bXqaPwV7'; // USER NEEDS TO FILL THIS
+        $manual_db   = '4726137_db';
+
+        if ($manual_host) {
+            $dsn = "mysql:host=$manual_host;dbname=$manual_db;charset=utf8mb4";
+            try {
+                $this->pdo = new PDO($dsn, $manual_user, $manual_pass);
+                $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                die("Manual MySQL Connection failed: " . $e->getMessage());
+            }
+        } elseif ($dbUrl) {
+            $url = parse_url($dbUrl);
+            $scheme = $url["scheme"] ?? 'pgsql';
+            
+            $host = $url["host"];
+            $port = $url["port"] ?? ($scheme === 'pgsql' ? 5432 : 3306);
+            $user = $url["user"];
+            $pass = $url["pass"];
+            $path = ltrim($url["path"], "/");
+
+            if ($scheme === 'pgsql' || $scheme === 'postgres') {
+                $dsn = "pgsql:host=$host;port=$port;dbname=$path";
+            } else {
+                $dsn = "mysql:host=$host;port=$port;dbname=$path;charset=utf8mb4";
+            }
+
+            try {
+                $this->pdo = new PDO($dsn, $user, $pass);
+                $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                die("Database Connection failed ($scheme): " . $e->getMessage());
+            }
+        } else {
+            // Local SQLite fallback
+            $dbPath = __DIR__ . '/courses.db';
+            try {
+                $this->pdo = new PDO("sqlite:" . $dbPath);
+                $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                die("SQLite Connection failed: " . $e->getMessage());
+            }
         }
+        $this->initialize();
     }
 
     private function initialize() {
@@ -23,7 +69,8 @@ class Database {
             instructor TEXT,
             duration TEXT,
             thumbnail TEXT DEFAULT 'https://via.placeholder.com/300x200',
-            content TEXT, -- Admin instructions/content
+            content TEXT, -- Instruction override
+            file_path TEXT, -- Link to PDF/Doc
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )");
 
@@ -44,13 +91,37 @@ class Database {
             registered_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )");
 
+        // Students Table (Student Accounts)
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS students (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            full_name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            student_id TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )");
+
         // Enrollments Table (Course Signups)
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS enrollments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             course_id INTEGER,
             student_name TEXT NOT NULL,
             student_contact TEXT NOT NULL,
+            student_account_id INTEGER DEFAULT NULL,
             enrolled_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(course_id) REFERENCES courses(id),
+            FOREIGN KEY(student_account_id) REFERENCES students(id)
+        )");
+
+        // Course Extras (Multiple Materials/Records)
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS course_extras (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            course_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            type TEXT NOT NULL, -- 'material' or 'record'
+            content TEXT,
+            file_path TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(course_id) REFERENCES courses(id)
         )");
 
@@ -65,7 +136,8 @@ class Database {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             role TEXT NOT NULL,
-            photo_url TEXT DEFAULT 'https://via.placeholder.com/150'
+            photo_url TEXT DEFAULT 'https://via.placeholder.com/150',
+            committee TEXT DEFAULT 'Board'
         )");
 
         // Events Table
@@ -112,18 +184,22 @@ class Database {
         }
 
         // Seed Site Content
-        $settingCount = $this->pdo->query("SELECT COUNT(*) FROM site_settings")->fetchColumn();
-        if ($settingCount == 0) {
-            $defaults = [
-                'home_about' => '<h3>About IEEE MIU</h3><p>We are a student branch dedicated to advancing technology and fostering innovation among students. Join us to learn, build, and grow.</p>',
-                // removed home_board since we have a table now, but keeping key doesn't hurt or can be used for intro text
-                'home_board_intro' => '<h3>Meet the Board</h3><p>Our dedicated leadership team.</p>',
-                'home_goals' => '<h3>Our Goals</h3><ul><li>Provide high-quality technical workshops.</li><li>Build a strong community of engineers.</li><li>Participate in global complications.</li></ul>'
-            ];
-            $stmt = $this->pdo->prepare("INSERT INTO site_settings (key, value) VALUES (?, ?)");
-            foreach ($defaults as $k => $v) {
-                $stmt->execute([$k, $v]);
-            }
+        $defaults = [
+            'home_about' => '<h3>About IEEE MIU</h3><p>We are a student branch dedicated to advancing technology and fostering innovation among students. Join us to learn, build, and grow.</p>',
+            'home_board_intro' => '<h3>Meet the Board</h3><p>Our dedicated leadership team.</p>',
+            'home_goals' => '<h3>Our Goals</h3><ul><li>Provide high-quality technical workshops.</li><li>Build a strong community of engineers.</li><li>Participate in global complications.</li></ul>',
+            'hero_badge' => 'IEEE MIU Student Branch',
+            'hero_title' => 'Innovating the <span class="text-gradient">Future</span> Together',
+            'hero_subtitle' => 'Join a community of passionate engineers, creators, and innovators. Master new skills through our specialized tracks and hands-on workshops.',
+            'header_events' => 'Upcoming <span class="text-gradient">Events</span>',
+            'header_registrations' => 'Open <span class="text-gradient">Registrations</span>',
+            'header_leadership' => 'Club <span class="text-gradient">Leadership</span>',
+            'header_join' => 'Join the Club'
+        ];
+        
+        $stmt = $this->pdo->prepare("INSERT OR IGNORE INTO site_settings (key, value) VALUES (?, ?)");
+        foreach ($defaults as $k => $v) {
+            $stmt->execute([$k, $v]);
         }
 
         // Seed Admin Account (admin / password123)

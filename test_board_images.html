@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Debug Test</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body style="padding: 2rem;">
+    <h1>Board Member Image Test</h1>
+    
+    <h2>Test 1: Direct Image (No Wrapper)</h2>
+    <img src="uploads/board/1768355067_Khaled.jpeg" style="width:150px; height:150px; border:3px solid red;">
+    
+    <h2>Test 2: With member-photo class</h2>
+    <div class="member-photo">
+        <img src="uploads/board/1768355067_Khaled.jpeg" alt="Test">
+    </div>
+    
+    <h2>Test 3: Full Board Card Structure</h2>
+    <div class="board-card glass-panel">
+        <div class="member-photo">
+            <img src="uploads/board/1768355067_Khaled.jpeg" alt="Khaled Ashraf">
+        </div>
+        <h3>Khaled Ashraf</h3>
+        <p class="member-role">Vice Chairman</p>
+    </div>
+    
+    <h2>Inspect Element Instructions:</h2>
+    <p>Right-click on the image above and select "Inspect Element"</p>
+    <p>Check the "Computed" tab to see what CSS is actually being applied</p>
+    <p>Look for any CSS that might be hiding the image or setting display:none</p>
+</body>
+</html>

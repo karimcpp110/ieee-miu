@@ -27,8 +27,24 @@ class Course {
     }
 
     public function delete($id) {
+        $this->db->query("DELETE FROM enrollments WHERE course_id = ?", [$id]);
+        $this->db->query("DELETE FROM course_extras WHERE course_id = ?", [$id]);
         $sql = "DELETE FROM courses WHERE id = ?";
         $this->db->query($sql, [$id]);
+    }
+
+    public function getExtras($courseId) {
+        $sql = "SELECT * FROM course_extras WHERE course_id = ? ORDER BY created_at ASC";
+        return $this->db->query($sql, [$courseId])->fetchAll();
+    }
+
+    public function addExtra($courseId, $title, $type, $content, $filePath) {
+        $sql = "INSERT INTO course_extras (course_id, title, type, content, file_path) VALUES (?, ?, ?, ?, ?)";
+        $this->db->query($sql, [$courseId, $title, $type, $content, $filePath]);
+    }
+
+    public function deleteExtra($id) {
+        $this->db->query("DELETE FROM course_extras WHERE id = ?", [$id]);
     }
 
     public function get($id) {
@@ -53,5 +69,10 @@ class Course {
     public function updateContent($id, $content) {
         $sql = "UPDATE courses SET content = ? WHERE id = ?";
         $this->db->query($sql, [$content, $id]);
+    }
+
+    public function updateFile($id, $filePath) {
+        $sql = "UPDATE courses SET file_path = ? WHERE id = ?";
+        $this->db->query($sql, [$filePath, $id]);
     }
 }

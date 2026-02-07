@@ -1,47 +1,49 @@
 # IEEE MIU Website & LMS
+**A Professional Student Organization Platform**
 
 A modern, glassmorphism-styled website for the IEEE MIU Student Branch, featuring a dynamic form builder and a custom Learning Management System (LMS).
 
-## 🚀 Features
+---
 
-- **Dynamic Form Builder**: Create custom registration forms with support for text, date, radio, checkbox, and select inputs.
-- **Little Moodle (LMS)**: 
-    - Admin-managed course content (lectures, videos, etc. via HTML).
-    - File upload support for course resources (PDF, Word, PPT).
-    - Restricted content access for enrolled/logged-in students.
-- **Student Accounts**: Dedicated registration and login system for students.
-- **Board Management**: Manage board members with local image uploads.
-- **Events Section**: List and manage upcoming club events.
-- **Modern UI**: Fully responsive design with glassmorphism effects and tailored color palettes.
-- **Database Support**: Dual support for SQLite (Local) and PostgreSQL (Production).
+## 🚀 Key Solutions
 
-## 🛠️ Local Setup
+- **Dynamic Form Builder**: Custom registration engine with multi-input support (text, date, radio, checkbox, select).
+- **Custom LMS (Little Moodle)**: 
+    - Full administrative control over course content and lectures.
+    - Integrated file management for PDF, Word, and PPT resources.
+    - Secure, role-based access for enrolled students.
+- **Student Portal**: Complete authentication system for student profiles and progress tracking.
+- **Organizational Management**: Dedicated modules for board members and event scheduling.
+- **Premium Design**: Responsive glassmorphism UI built for a high-end visual experience.
 
-### Prerequisites
-- XAMPP or any PHP 7.4+ environment.
-- PHP SQLite extension enabled.
+---
 
-### Installation
-1. Clone the repository:
+## 🛠️ Technical Stack
+
+- **Backend**: PHP (7.4+), SQLite / PostgreSQL
+- **Frontend**: Vanilla HTML5, CSS3 (Modern Flex/Grid), JavaScript
+- **Deployment**: Configured for XAMPP (Local) and InfinityFree/Heroku (Cloud)
+
+---
+
+## 🛠️ Local Installation
+
+1. Clone & Setup:
    ```bash
    git clone https://github.com/karimcpp110/ieee-miu.git
    ```
-2. Open the project in your local server (e.g., `C:\xampp\htdocs\ieee-miu`).
-3. Run the migration script once to initialize the database:
-   ```bash
-   php migrate_all.php
-   ```
-4. Access the site via your browser (e.g., `http://localhost/ieee-miu/index.php`).
+2. Database Initialization:
+   Execute `php migrate_all.php` to set up the local infrastructure.
+3. Serve:
+   Access via `http://localhost/ieee-miu/index.php`.
 
-## ☁️ Deployment (Render)
+---
 
-1. Create a **PostgreSQL** database on Render.
-2. Create a **Web Service** on Render and connect this GitHub repository.
-3. Set the Environment Variable `DATABASE_URL` to your Render Internal Database URL.
-4. Visit `your-site.onrender.com/migrate_all.php` to initialize the production database.
+## 👤 Developer & Contact
+**Karim Wael**  
+Full-Stack Developer
 
-## 👤 Credits
-Created by **Karim Wael**.
+📫 [Email](mailto:kwael7934@gmail.com) | [LinkedIn](https://www.linkedin.com/in/karim-wael-40132b360/)
 
 ---
 © 2026 IEEE MIU Student Branch.
