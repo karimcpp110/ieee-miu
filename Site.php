@@ -1,26 +1,33 @@
 <?php
 require_once 'Database.php';
 
-class Site {
+class Site
+{
     private $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = new Database();
     }
 
-    public function get($key) {
-        $stmt = $this->db->query("SELECT value FROM site_settings WHERE key = ?", [$key]);
-        $res = $stmt->fetch();
-        return $res ? $res['value'] : '';
+    public function get($key)
+    {
+        try {
+            $stmt = $this->db->query("SELECT value FROM site_settings WHERE key_name = ?", [$key]);
+            $res = $stmt->fetch();
+            return $res ? $res['value'] : '';
+        } catch (Exception $e) {
+            return '';
+        }
     }
 
-    public function set($key, $value) {
-        $this->db->query("CREATE TABLE IF NOT EXISTS site_settings (key TEXT PRIMARY KEY, value TEXT)"); // Ensure table exists
-        $stmt = $this->db->query("SELECT key FROM site_settings WHERE key = ?", [$key]);
+    public function set($key, $value)
+    {
+        $stmt = $this->db->query("SELECT key_name FROM site_settings WHERE key_name = ?", [$key]);
         if ($stmt->fetch()) {
-            $this->db->query("UPDATE site_settings SET value = ? WHERE key = ?", [$value, $key]);
+            $this->db->query("UPDATE site_settings SET value = ? WHERE key_name = ?", [$value, $key]);
         } else {
-            $this->db->query("INSERT INTO site_settings (key, value) VALUES (?, ?)", [$key, $value]);
+            $this->db->query("INSERT INTO site_settings (key_name, value) VALUES (?, ?)", [$key, $value]);
         }
     }
 
