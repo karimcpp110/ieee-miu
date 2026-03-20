@@ -22,16 +22,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = $_POST['username'];
     $password = $_POST['password'];
 
-    // Re-implementing simplified login logic here to avoid rewriting Auth.php right now if it expects raw PDO
-    // Actually, let's just use the Database wrapper helper.
-    $stmt = $db->query("SELECT * FROM users WHERE username = ?", [$username]);
-    $user = $stmt->fetch();
+    $result = Auth::login($username, $password, $db->getPDO());
 
-    if ($user && $user['password'] === $password) {
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['username'] = $user['username'];
+    if ($result === true) {
         header("Location: dashboard.php");
         exit;
+    } elseif ($result === 'locked') {
+        $error = "Account temporarily locked due to too many failed attempts. Please try again in 15 minutes.";
     } else {
         $error = "Invalid credentials";
     }
@@ -88,7 +85,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </button>
             </form>
 
-            <div class="auth-footer">
+            <div class="auth-footer" style="display: flex; flex-direction: column; gap: 1rem;">
+                <a href="forgot_password.php" class="back-link">Forgot Password?</a>
                 <a href="index.php" class="back-link"><i class="fas fa-arrow-left"></i> Back to Home</a>
             </div>
         </div>

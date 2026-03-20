@@ -1,6 +1,14 @@
 <?php
-require_once 'Course.php';
 require_once 'Auth.php';
+require_once 'Database.php';
+require_once 'Course.php';
+require_once 'Gamification.php';
+require_once 'Notification.php';
+require_once 'EmailQueue.php';
+
+$gamification = new Gamification();
+$notification = new Notification();
+$emailQueue = new EmailQueue();
 
 $id = isset($_GET['id']) ? $_GET['id'] : 0;
 $courseModel = new Course();
@@ -19,7 +27,10 @@ $canView = Auth::check(); // Admins can always view
 if (!$canView && isset($_SESSION['student_logged_in'])) {
     $studentId = $_SESSION['student_account_id'];
     // Check if this student is enrolled in THIS course
-    $enrollCheck = $db->query("SELECT id FROM enrollments WHERE course_id = ? AND student_account_id = ?", [$id, $studentId])->fetch();
+    $enrollCheck = $db->query("SELECT id FROM enrollments WHERE course_id = ? AND student_account_id = ?", [
+        $id,
+        $studentId
+    ])->fetch();
     if ($enrollCheck) {
         $canView = true;
     }
@@ -38,9 +49,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enroll'])) {
         $canView = true;
 }
 
+// Handle Completion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['complete_course'])) {
+    if (isset($_SESSION['student_account_id'])) {
+        // Double check exams again in handler
+        $canComplete = true;
+        foreach ($exams as $ex) {
+            if (!empty($ex['form_id'])) {
+                // Check if they SUBMITTED and if they PASSED
+                $subCheck = $db->query("SELECT data FROM submissions WHERE form_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1", [$ex['form_id'], $_SESSION['student_account_id']])->fetch();
+                if (!$subCheck) { $canComplete = false; break; }
+                
+                $subData = json_decode($subCheck['data'], true);
+                $passingStatus = $subData['Passing_Status'] ?? 'Failed';
+                if ($passingStatus !== 'Passed') {
+                    $canComplete = false;
+                    break;
+                }
+            }
+        }
+        
+        if (!$canComplete) {
+            $msg = "Error: You must PASS all required exams (60% or higher) before completing this course.";
+        } else {
+            $gamification->completeCourse($_SESSION['student_account_id'], $id);
+
+        // Notify Student
+        $notification->create(
+            "Course Completed!",
+            "Congratulations! You have successfully completed " . $course['title'],
+            "success",
+            null,
+            $_SESSION['student_account_id']
+        );
+
+        // Queue Email
+        $emailQueue->enqueue(
+            $_SESSION['student_email'],
+            "Course Completion: " . $course['title'],
+            "<h2>Congratulations!</h2>
+<p>You have mastered <strong>" . $course['title'] . "</strong>. You can now download your certificate from your
+    dashboard.</p>"
+        );
+
+        $msg = "Congratulations! You have completed the course and earned a badge!";
+        }
+    }
+}
+
+// Check if already completed
+$isCompleted = false;
+if (isset($_SESSION['student_account_id'])) {
+    $compCheck = $db->query(
+        "SELECT status FROM user_course_progress WHERE user_id = ? AND course_id = ?",
+        [$_SESSION['student_account_id'], $id]
+    )->fetch();
+    if ($compCheck && $compCheck['status'] === 'completed') {
+        $isCompleted = true;
+    }
+}
+
 $extras = $courseModel->getExtras($id);
-$materials = array_filter($extras, fn($e) => $e['type'] === 'material');
-$records = array_filter($extras, fn($e) => $e['type'] === 'record');
+$materials = array_filter($extras, function ($e) {
+    return $e['type'] === 'material'; });
+$records = array_filter($extras, function ($e) {
+    return $e['type'] === 'record'; });
+$exams = array_filter($extras, function ($e) {
+    return $e['type'] === 'exam'; });
+
+// Inject Primary Linked Exam if exists
+if (!empty($course['exam_id'])) {
+    $primaryForm = $db->query("SELECT id, title FROM forms WHERE id = ?", [$course['exam_id']])->fetch();
+    if ($primaryForm) {
+        $exams[] = [
+            'form_id' => $primaryForm['id'],
+            'title' => '[Mandatory] Final Exam: ' . $primaryForm['title'],
+            'type' => 'exam',
+            'is_primary' => true
+        ];
+    }
+}
+
+// Check for required exams
+$pendingExamsCount = 0;
+if (isset($_SESSION['student_account_id']) && !empty($exams)) {
+    foreach ($exams as $ex) {
+        if (!empty($ex['form_id'])) {
+            $subCheck = $db->query("SELECT data FROM submissions WHERE form_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1", [
+                $ex['form_id'], 
+                $_SESSION['student_account_id']
+            ])->fetch();
+            
+            if (!$subCheck) {
+                $pendingExamsCount++;
+            } else {
+                $subData = json_decode($subCheck['data'], true);
+                if (($subData['Passing_Status'] ?? 'Failed') !== 'Passed') {
+                    $pendingExamsCount++;
+                }
+            }
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -153,23 +263,95 @@ $records = array_filter($extras, fn($e) => $e['type'] === 'record');
                     </div>
                 </section>
 
-                <?php if ($canView && (!empty($materials) || !empty($records))): ?>
+                <?php if ($canView && (!empty($materials) || !empty($records) || !empty($exams))): ?>
                     <div class="extras-grid">
+                        <?php if (!empty($exams)): ?>
+                            <section class="extras-section exams glass-panel" style="grid-column: 1 / -1; border: 1px solid var(--secondary-neon);">
+                                <h3 class="text-gradient" style="color: var(--secondary-neon);"><i class="fas fa-file-signature"></i> Exams & Assessments</h3>
+                                <div class="extras-list">
+                                    <?php foreach ($exams as $ex): ?>
+                                        <?php 
+                                        $statusLabel = 'Required';
+                                        $statusClass = 'pending';
+                                        $scoreText = '';
+                                        $hasAttempted = false;
+                                        if (isset($_SESSION['student_account_id']) && !empty($ex['form_id'])) {
+                                            $sub = $db->query("SELECT data FROM submissions WHERE form_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1", [$ex['form_id'], $_SESSION['student_account_id']])->fetch();
+                                            if ($sub) {
+                                                $hasAttempted = true;
+                                                $sData = json_decode($sub['data'], true);
+                                                $passed = ($sData['Passing_Status'] ?? 'Failed') === 'Passed';
+                                                $statusLabel = $passed ? 'Passed' : 'Failed';
+                                                $statusClass = $passed ? 'success' : 'failed';
+                                                $scoreText = $sData['Final_Grade'] ?? '';
+                                            }
+                                        }
+                                        ?>
+                                        <div class="extra-item glass-panel <?= $statusClass ?>" style="border-left: 4px solid <?= $statusClass === 'success' ? '#00ffaa' : ($statusClass === 'failed' ? '#ff4757' : 'var(--secondary-neon)') ?>;">
+                                            <div class="extra-icon" style="background: rgba(0, 255, 170, 0.1); color: var(--secondary-neon);"><i class="fas fa-file-contract"></i></div>
+                                            <div class="extra-info">
+                                                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                                    <h4 style="margin:0;"><?= htmlspecialchars($ex['title']) ?></h4>
+                                                    <span class="exam-status-badge <?= $statusClass ?>"><?= $statusLabel ?></span>
+                                                </div>
+                                                <?php if ($scoreText): ?><p style="margin-top: 0.25rem; font-weight: 600; color: var(--text-main);">Score: <?= htmlspecialchars($scoreText) ?></p><?php endif; ?>
+                                                <?php if ($ex['content']): ?><p><?= htmlspecialchars($ex['content']) ?></p><?php endif; ?>
+                                            </div>
+                                            <?php if (!empty($ex['form_id'])): ?>
+                                                <a href="view_form.php?id=<?= $ex['form_id'] ?>" target="_blank"
+                                                    class="btn btn-sm <?= $statusClass === 'success' ? 'btn-outline' : 'btn-secondary' ?>">
+                                                    <i class="fas <?= $statusClass === 'success' ? 'fa-check' : 'fa-edit' ?>"></i> 
+                                                    <?= $statusClass === 'success' ? 'View Results' : ($hasAttempted ? 'Retake Exam' : 'Take Exam') ?>
+                                                </a>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </section>
+                        <?php endif; ?>
+
                         <?php if (!empty($materials)): ?>
                             <section class="extras-section materials glass-panel">
                                 <h3 class="text-gradient"><i class="fas fa-book"></i> Supplementary Materials</h3>
                                 <div class="extras-list">
-                                    <?php foreach ($materials as $m): ?>
+                                    <?php foreach ($materials as $m): 
+                                        $ext = strtolower(pathinfo($m['file_path'], PATHINFO_EXTENSION));
+                                        $icon = 'fa-file-alt';
+                                        
+                                        if (strpos($m['file_path'], 'http') === 0 && strpos($m['file_path'], $_SERVER['HTTP_HOST']) === false) {
+                                            if (strpos($m['file_path'], 'youtube.com') !== false || strpos($m['file_path'], 'vimeo.com') !== false) {
+                                                $icon = 'fa-video';
+                                            } else {
+                                                $icon = 'fa-external-link-alt';
+                                            }
+                                        } elseif ($ext == 'pdf') {
+                                            $icon = 'fa-file-pdf';
+                                        } elseif (in_array($ext, ['doc', 'docx'])) {
+                                            $icon = 'fa-file-word';
+                                        } elseif (in_array($ext, ['ppt', 'pptx', 'pps', 'ppsx', 'pot', 'potx'])) {
+                                            $icon = 'fa-file-powerpoint';
+                                        } elseif (in_array($ext, ['xls', 'xlsx', 'csv'])) {
+                                            $icon = 'fa-file-excel';
+                                        } elseif (in_array($ext, ['zip', 'rar', '7z'])) {
+                                            $icon = 'fa-file-archive';
+                                        }
+                                    ?>
                                         <div class="extra-item glass-panel">
-                                            <div class="extra-icon"><i class="fas fa-file-pdf"></i></div>
+                                            <div class="extra-icon"><i class="fas <?= $icon ?>"></i></div>
                                             <div class="extra-info">
                                                 <h4><?= htmlspecialchars($m['title']) ?></h4>
                                                 <?php if ($m['content']): ?>
-                                                    <p><?= htmlspecialchars($m['content']) ?></p><?php endif; ?>
+                                                    <p><?= htmlspecialchars($m['content']) ?></p>
+                                                <?php endif; ?>
+                                                <?php if (empty($m['file_path'])): ?>
+                                                    <p style="color: #ffaa00; font-size: 0.85rem; font-weight: 500; margin-top: 0.5rem;">
+                                                        <i class="fas fa-exclamation-triangle"></i> (No resource attached)
+                                                    </p>
+                                                <?php endif; ?>
                                             </div>
-                                            <?php if ($m['file_path']): ?>
+                                            <?php if (!empty($m['file_path'])): ?>
                                                 <a href="<?= htmlspecialchars($m['file_path']) ?>" download
-                                                    class="btn btn-sm btn-outline"><i class="fas fa-download"></i></a>
+                                                    class="btn btn-sm btn-outline"><i class="fas fa-download"></i> Download</a>
                                             <?php endif; ?>
                                         </div>
                                     <?php endforeach; ?>
@@ -242,9 +424,47 @@ $records = array_filter($extras, fn($e) => $e['type'] === 'record');
                     <div class="section-header-centered">
                         <h2 class="text-gradient">You are Enrolled!</h2>
                         <p>Enjoy your learning journey in <?= htmlspecialchars($course['title']) ?>.</p>
+
+                        <?php if (!$isCompleted): ?>
+                            <?php if ($course['allow_completion']): ?>
+                                <form method="POST" style="margin-top: 2rem;">
+                                    <input type="hidden" name="complete_course" value="1">
+                                    <?php if ($pendingExamsCount > 0): ?>
+                                        <div class="glass-panel" style="padding: 1.5rem; border: 1px solid #ff4757;">
+                                            <p style="margin: 0; color: #ff4757; font-weight: 600;">
+                                                <i class="fas fa-exclamation-triangle"></i> Exams Required
+                                            </p>
+                                            <p style="margin: 0.5rem 0 0; font-size: 0.9rem;">You must <b>PASS</b> all required exams (60% or higher) listed below to unlock completion.</p>
+                                        </div>
+                                    <?php else: ?>
+                                        <button type="submit" class="btn btn-secondary pulse">
+                                            <i class="fas fa-check-double"></i> Mark as Completed
+                                        </button>
+                                    <?php endif; ?>
+                                </form>
+                            <?php else: ?>
+                                <div class="glass-panel" style="margin-top: 2rem; padding: 1.5rem; border: 1px solid var(--secondary-neon);">
+                                    <p style="margin: 0; color: var(--secondary-neon); font-weight: 600;">
+                                        <i class="fas fa-info-circle"></i> Completion Pending
+                                    </p>
+                                    <p style="margin: 0.5rem 0 0; font-size: 0.9rem;">The completion button will be unlocked by your instructor once the course requirements are met.</p>
+                                </div>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <div class="completion-box glass-panel premium-entry"
+                                style="margin-top: 2rem; border-color: var(--secondary-neon);">
+                                <h3 style="color: var(--secondary-neon); margin-bottom: 1rem;">
+                                    <i class="fas fa-award"></i> Course Certificate
+                                </h3>
+                                <p style="margin-bottom: 1.5rem;">You have mastered this track! Download your official IEEE MIU
+                                    certificate below.</p>
+                                <a href="download_certificate.php?course_id=<?= $id ?>" class="btn btn-primary">
+                                    <i class="fas fa-file-pdf"></i> Download Certificate (PDF)
+                                </a>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
-                </section>
             </div>
         </article>
     </main>
@@ -610,6 +830,21 @@ $records = array_filter($extras, fn($e) => $e['type'] === 'record');
         .extra-info {
             flex: 1;
         }
+
+        .exam-status-badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 50px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .exam-status-badge.pending { background: rgba(255, 170, 0, 0.1); color: #ffaa00; border: 1px solid rgba(255,170,0,0.2); }
+        .exam-status-badge.success { background: rgba(0, 255, 170, 0.1); color: #00ffaa; border: 1px solid rgba(0,255,170,0.2); }
+        .exam-status-badge.failed { background: rgba(255, 71, 87, 0.1); color: #ff4757; border: 1px solid rgba(255,71,87,0.2); }
+
+        .extra-item.success { border-color: #00ffaa !important; }
+        .extra-item.failed { border-color: #ff4757 !important; }
 
         .extra-info h4 {
             font-size: 1rem;

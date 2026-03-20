@@ -38,6 +38,25 @@
                 </div>
             <?php else: ?>
                 <div class="nav-auth">
+                    <!-- Notification Bell -->
+                    <?php if (Auth::check() || isset($_SESSION['student_logged_in'])): ?>
+                        <div class="notification-wrapper">
+                            <button id="noti-bell" class="noti-btn">
+                                <i class="fas fa-bell"></i>
+                                <span id="noti-count" class="noti-count" style="display:none;">0</span>
+                            </button>
+                            <div id="noti-dropdown" class="noti-dropdown glass-panel">
+                                <div class="noti-header">
+                                    <span>Notifications</span>
+                                    <button id="mark-all-read">Clear All</button>
+                                </div>
+                                <div id="noti-list" class="noti-list">
+                                    <p class="noti-empty">No new notifications</p>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
                     <a href="login.php" class="admin-link">Admin</a>
                     <a href="student_login.php" class="btn btn-primary">Student Login</a>
                 </div>
@@ -54,11 +73,19 @@
                 <span class="badge">ADMIN</span>
             </div>
             <div class="toolbar-shortcuts">
-                <a href="dashboard.php?tab=registrations" title="Registrations"><i class="fas fa-users"></i></a>
-                <a href="dashboard.php?tab=board" title="Board Members"><i class="fas fa-id-badge"></i></a>
-                <a href="dashboard.php?tab=events" title="Events"><i class="fas fa-calendar-alt"></i></a>
-                <a href="dashboard.php?tab=forms" title="Dynamic Forms"><i class="fas fa-poll"></i></a>
-                <a href="dashboard.php?tab=courses" title="LMS Management"><i class="fas fa-book-open"></i></a>
+                <?php if (Auth::isHR()): ?>
+                    <a href="dashboard.php?tab=forms" title="Dynamic Forms"><i class="fas fa-poll"></i></a>
+                <?php endif; ?>
+
+                <?php if (Auth::isInstructor()): ?>
+                    <a href="dashboard.php?tab=courses" title="LMS Management"><i class="fas fa-book-open"></i></a>
+                <?php endif; ?>
+
+                <?php if (Auth::isAdmin()): ?>
+                    <a href="dashboard.php?tab=registrations" title="Registrations"><i class="fas fa-users"></i></a>
+                    <a href="dashboard.php?tab=board" title="Board Members"><i class="fas fa-id-badge"></i></a>
+                    <a href="dashboard.php?tab=events" title="Events"><i class="fas fa-calendar-alt"></i></a>
+                <?php endif; ?>
             </div>
             <div class="toolbar-actions">
                 <a href="dashboard.php" class="btn-dashboard">Dashboard</a>
@@ -83,6 +110,48 @@
             navLinks.classList.remove('active');
         }
     });
+    // Notifications Logic
+    const bell = document.getElementById('noti-bell');
+    const dropdown = document.getElementById('noti-dropdown');
+    const notiList = document.getElementById('noti-list');
+    const notiCount = document.getElementById('noti-count');
+
+    if (bell) {
+        bell.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown.classList.toggle('active');
+            fetchNotifications();
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', () => dropdown.classList.remove('active'));
+        dropdown.addEventListener('click', (e) => e.stopPropagation());
+
+        function fetchNotifications() {
+            fetch('get_notifications.php')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        notiCount.innerText = data.length;
+                        notiCount.style.display = 'flex';
+                        notiList.innerHTML = data.map(n => `
+                            <div class="noti-item ${n.type}">
+                                <div class="noti-title">${n.title}</div>
+                                <div class="noti-msg">${n.message}</div>
+                                <div class="noti-time">${n.time_ago}</div>
+                            </div>
+                        `).join('');
+                    } else {
+                        notiCount.style.display = 'none';
+                        notiList.innerHTML = '<p class="noti-empty">All caught up!</p>';
+                    }
+                });
+        }
+
+        // Initial fetch and poll
+        fetchNotifications();
+        setInterval(fetchNotifications, 30000); // Every 30s
+    }
 </script>
 
 <style>
@@ -333,6 +402,129 @@
         .nav-auth .btn {
             width: 100%;
             justify-content: center;
+        }
+    }
+
+    /* --- NOTIFICATION STYLES --- */
+    .notification-wrapper {
+        position: relative;
+        margin-right: 1rem;
+    }
+
+    .noti-btn {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        font-size: 1.2rem;
+        cursor: pointer;
+        position: relative;
+        transition: var(--transition);
+    }
+
+    .noti-btn:hover {
+        color: var(--primary-neon);
+    }
+
+    .noti-count {
+        position: absolute;
+        top: -5px;
+        right: -8px;
+        background: #ff4757;
+        color: white;
+        font-size: 0.65rem;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        border: 2px solid var(--bg-color);
+    }
+
+    .noti-dropdown {
+        position: absolute;
+        top: 2.5rem;
+        right: 0;
+        width: 320px;
+        max-height: 480px;
+        overflow-y: auto;
+        display: none;
+        flex-direction: column;
+        z-index: 1002;
+        padding: 0;
+        animation: slideDown 0.3s ease-out;
+    }
+
+    .noti-dropdown.active {
+        display: flex;
+    }
+
+    .noti-header {
+        padding: 1.2rem;
+        border-bottom: 1px solid var(--glass-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 700;
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .noti-header button {
+        background: none;
+        border: none;
+        color: var(--primary-neon);
+        font-size: 0.8rem;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .noti-item {
+        padding: 1.2rem;
+        border-bottom: 1px solid var(--glass-border);
+        transition: var(--transition);
+        cursor: pointer;
+    }
+
+    .noti-item:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .noti-title {
+        font-weight: 700;
+        font-size: 0.9rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .noti-msg {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        line-height: 1.4;
+    }
+
+    .noti-time {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.5rem;
+        font-style: italic;
+    }
+
+    .noti-empty {
+        padding: 3rem 1rem;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
         }
     }
 </style>

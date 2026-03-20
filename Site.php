@@ -4,18 +4,35 @@ require_once 'Database.php';
 class Site
 {
     private $db;
+    private $cache;
+    private $hasCache;
 
     public function __construct()
     {
         $this->db = new Database();
+        $this->hasCache = file_exists('Cache.php');
+        if ($this->hasCache) {
+            require_once 'Cache.php';
+            $this->cache = new Cache();
+        }
     }
 
     public function get($key)
     {
+        if ($this->hasCache) {
+            $cached = $this->cache->get('site_setting_' . $key);
+            if ($cached !== null)
+                return $cached;
+        }
+
         try {
             $stmt = $this->db->query("SELECT value FROM site_settings WHERE key_name = ?", [$key]);
             $res = $stmt->fetch();
-            return $res ? $res['value'] : '';
+            $val = $res ? $res['value'] : '';
+            if ($this->hasCache) {
+                $this->cache->set('site_setting_' . $key, $val);
+            }
+            return $val;
         } catch (Exception $e) {
             return '';
         }
@@ -29,7 +46,10 @@ class Site
         } else {
             $this->db->query("INSERT INTO site_settings (key_name, value) VALUES (?, ?)", [$key, $value]);
         }
-    }
 
-    // Static helper for easy access in views if needed (requires instantiation pattern, but we'll stick to instance for consistency with Course model or simple usage)
+        if ($this->hasCache) {
+            $this->cache->delete('site_setting_' . $key);
+        }
+    }
 }
+?>

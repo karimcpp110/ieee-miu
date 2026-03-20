@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $db = new Database();
     $full_name = $_POST['full_name'];
     $email = $_POST['email'];
-    $password = $_POST['password']; // In production, use password_hash
+    $password = password_hash($_POST['password'], PASSWORD_BCRYPT);
     $student_id = $_POST['student_id'];
 
     // Check if email already exists

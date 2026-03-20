@@ -9,20 +9,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'];
 
     $db = new Database();
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 
-    $stmt = $db->query("SELECT * FROM students WHERE email = ? AND password = ?", [$email, $password]);
-    $student = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($student) {
-        $_SESSION['student_logged_in'] = true;
-        $_SESSION['student_account_id'] = $student['id'];
-        $_SESSION['student_name'] = $student['full_name'];
-        $_SESSION['student_email'] = $student['email'];
-
-        header("Location: student_dashboard.php");
-        exit;
+    // 1. Brute Force Protection (Lockout)
+    $stmt = $db->query("SELECT COUNT(*) FROM login_attempts WHERE (ip_address = ? OR username = ?) AND attempt_time > DATE_SUB(NOW(), INTERVAL 15 MINUTE)", [$ip, $email]);
+    if ($stmt->fetchColumn() >= 5) {
+        $msg = "Too many failed attempts. Please try again in 15 minutes.";
     } else {
-        $msg = "Invalid email or password. Please try again.";
+        $stmt = $db->query("SELECT * FROM students WHERE email = ?", [$email]);
+        $student = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($student && (password_verify($password, $student['password']) || $password === $student['password'])) {
+            // Success! Clear failed attempts
+            $db->query("DELETE FROM login_attempts WHERE ip_address = ? OR username = ?", [$ip, $email]);
+
+            $_SESSION['student_logged_in'] = true;
+            $_SESSION['student_account_id'] = $student['id'];
+            $_SESSION['student_name'] = $student['full_name'];
+            $_SESSION['student_email'] = $student['email'];
+
+            // Update Login Stats & Track IP
+            $db->query("INSERT INTO user_stats (user_id, last_login) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE last_login = NOW()", [$student['id']]);
+
+            // Log the successful login action
+            $db->query(
+                "INSERT INTO activity_logs (user_id, username, action, details, ip_address) VALUES (?, ?, 'Student Login', 'Success', ?)",
+                [$student['id'], $student['full_name'], $ip]
+            );
+
+            // If the password was still plain text, upgrade it to a hash now (Seamless Migration)
+            if ($password === $student['password']) {
+                $newHash = password_hash($password, PASSWORD_BCRYPT);
+                $db->query("UPDATE students SET password = ? WHERE id = ?", [$newHash, $student['id']]);
+            }
+
+            header("Location: student_dashboard.php");
+            exit;
+        } else {
+            // Failure: Record the attempt
+            $db->query("INSERT INTO login_attempts (ip_address, username) VALUES (?, ?)", [$ip, $email]);
+            $msg = "Invalid email or password. Please try again.";
+        }
     }
 }
 ?>

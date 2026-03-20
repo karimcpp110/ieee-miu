@@ -18,7 +18,7 @@ $boardMembers = $boardModel->getAll();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Club Leadership - IEEE MIU</title>
-    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="style.css?v=1771939477.30634">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 
@@ -143,7 +143,7 @@ $boardMembers = $boardModel->getAll();
         .board-card {
             padding: 0;
             text-align: center;
-            border-radius: var(--border-radius-lg);
+            border-radius: var(--radius-lg);
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
             position: relative;
             overflow: hidden;
@@ -252,8 +252,18 @@ $boardMembers = $boardModel->getAll();
             background: rgba(0, 98, 155, 0.1);
             color: var(--primary-neon);
             border: 1px solid rgba(0, 98, 155, 0.2);
-            border-radius: 50px;
+            border-radius: 9999px;
+            /* Absolute pill shape */
             letter-spacing: 1.5px;
+            transition: var(--transition);
+            display: inline-block;
+        }
+
+        .board-card:hover .role-badge {
+            background: rgba(0, 98, 155, 0.2);
+            border-color: var(--primary-neon);
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(0, 98, 155, 0.2);
         }
 
         .member-bio {

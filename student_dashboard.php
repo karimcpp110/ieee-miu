@@ -1,6 +1,7 @@
 <?php
 require_once 'Auth.php';
 require_once 'Database.php';
+require_once 'Gamification.php';
 
 
 
@@ -11,21 +12,30 @@ if (!isset($_SESSION['student_logged_in']) || $_SESSION['student_logged_in'] !==
 }
 
 $db = new Database();
+$gamification = new Gamification();
+
 $studentId = $_SESSION['student_account_id'];
 $studentName = $_SESSION['student_name'];
 $studentEmail = $_SESSION['student_email'];
 
+// Fetch gamification data
+$badges = $gamification->getUserBadges($studentId);
+$leaderboard = $gamification->getLeaderboard(5);
+
+
 // Fetch Enrolled Courses
-$sql = "SELECT e.*, c.title, c.thumbnail, c.instructor, c.description, c.duration 
-        FROM enrollments e 
-        JOIN courses c ON e.course_id = c.id 
-        WHERE e.student_account_id = ? 
-        ORDER BY e.enrolled_at DESC";
+$sql = "SELECT e.*, c.title, c.thumbnail, c.instructor, c.description, c.duration,
+                    (SELECT status FROM user_course_progress WHERE user_id = e.student_account_id AND course_id = e.course_id) as progress_status
+                    FROM enrollments e 
+                    JOIN courses c ON e.course_id = c.id 
+                    WHERE e.student_account_id = ? 
+                    ORDER BY e.enrolled_at DESC";
 $enrollments = $db->query($sql, [$studentId])->fetchAll();
 
 // Fetch Student Details to get Student ID if not in session
 $studentProfile = $db->query("SELECT * FROM students WHERE id = ?", [$studentId])->fetch();
-$studentUniversityId = $studentProfile['student_id'] ?? 'Not set';
+$studentUniversityId = $studentProfile ? ($studentProfile['student_id'] ?? 'Not set') : 'Not set';
+$joinDate = $studentProfile ? ($studentProfile['created_at'] ?? 'now') : 'now';
 
 ?>
 <!DOCTYPE html>
@@ -66,25 +76,17 @@ $studentUniversityId = $studentProfile['student_id'] ?? 'Not set';
                         <img src="https://ui-avatars.com/api/?name=<?= urlencode($studentName) ?>&background=00629B&color=fff&size=128"
                             alt="Profile">
                     </div>
-                    <h3 class="profile-name">
-                        <?= htmlspecialchars($studentName) ?>
-                    </h3>
-                    <p class="profile-email">
-                        <?= htmlspecialchars($studentEmail) ?>
-                    </p>
+                    <h3 class="profile-name"><?= htmlspecialchars($studentName) ?></h3>
+                    <p class="profile-email"><?= htmlspecialchars($studentEmail) ?></p>
 
                     <div class="profile-details-list">
                         <div class="detail-item">
                             <span class="label">Student ID</span>
-                            <span class="value">
-                                <?= htmlspecialchars($studentUniversityId) ?>
-                            </span>
+                            <span class="value"><?= htmlspecialchars($studentUniversityId) ?></span>
                         </div>
                         <div class="detail-item">
                             <span class="label">Joined</span>
-                            <span class="value">
-                                <?= date('M Y', strtotime($studentProfile['created_at'] ?? 'now')) ?>
-                            </span>
+                            <span class="value"><?= date('M Y', strtotime($joinDate)) ?></span>
                         </div>
                     </div>
 
@@ -92,6 +94,43 @@ $studentUniversityId = $studentProfile['student_id'] ?? 'Not set';
                         <i class="fas fa-search"></i> Browse Courses
                     </a>
                 </div>
+
+                <!-- My Badges -->
+                <section class="badges-section glass-panel premium-entry" style="margin-top: 2rem; padding: 1.5rem;">
+                    <h3 class="text-gradient" style="font-size: 1.2rem; margin-bottom: 1.5rem;"><i
+                            class="fas fa-award"></i> My Badges</h3>
+                    <div class="badges-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                        <?php foreach ($badges as $badge): ?>
+                            <div class="badge-item" title="<?= htmlspecialchars($badge['description']) ?>"
+                                style="text-align: center;">
+                                <div class="badge-icon" style="font-size: 1.5rem; color: var(--secondary-neon);"><i
+                                        class="fas fa-certificate"></i></div>
+                                <span class="badge-name"
+                                    style="font-size: 0.7rem; display: block; border-top:none;"><?= htmlspecialchars($badge['name']) ?></span>
+                            </div>
+                        <?php endforeach; ?>
+                        <?php if (empty($badges)): ?>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); grid-column: span 3;">No badges yet.</p>
+                        <?php endif; ?>
+                    </div>
+                </section>
+
+                <!-- Small Leaderboard -->
+                <section class="leaderboard-section glass-panel premium-entry"
+                    style="margin-top: 2rem; padding: 1.5rem;">
+                    <h3 class="text-gradient" style="font-size: 1.2rem; margin-bottom: 1.5rem;"><i
+                            class="fas fa-trophy"></i> Top Learners</h3>
+                    <div class="mini-leaderboard">
+                        <?php foreach ($leaderboard as $index => $user): ?>
+                            <div class="mini-rank-item"
+                                style="display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.5rem; padding: 0.5rem; background: rgba(255,255,255,0.02); border-radius: 8px;">
+                                <span><?= $index + 1 ?>. <?= htmlspecialchars($user['username']) ?></span>
+                                <span
+                                    style="font-weight: 700; color: var(--secondary-neon);"><?= $user['courses_completed'] ?></span>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </section>
             </aside>
 
             <!-- Main Content: My Learning -->
@@ -99,9 +138,7 @@ $studentUniversityId = $studentProfile['student_id'] ?? 'Not set';
                 <div class="glass-panel content-section">
                     <div class="section-header">
                         <h2 class="text-gradient">My Learning</h2>
-                        <span class="count-badge">
-                            <?= count($enrollments) ?> Courses
-                        </span>
+                        <span class="count-badge"><?= count($enrollments) ?> Courses</span>
                     </div>
 
                     <?php if (empty($enrollments)): ?>
@@ -121,7 +158,6 @@ $studentUniversityId = $studentProfile['student_id'] ?? 'Not set';
                                         <img src="<?= htmlspecialchars($course['thumbnail']) ?>" alt="Thumbnail"
                                             class="card-img">
                                         <div class="admin-card-actions">
-                                            <!-- Progress Badge Example -->
                                             <span class="status-badge" style="background: rgba(0,0,0,0.7);">Enrolled</span>
                                         </div>
                                     </div>
@@ -131,20 +167,30 @@ $studentUniversityId = $studentProfile['student_id'] ?? 'Not set';
                                         </h3>
                                         <div class="instructor-info" style="margin-bottom: 1rem;">
                                             <small><i class="fas fa-chalkboard-teacher"></i>
-                                                <?= htmlspecialchars($course['instructor']) ?>
-                                            </small>
+                                                <?= htmlspecialchars($course['instructor']) ?></small>
                                         </div>
 
-                                        <div class="card-footer-flex" style="margin-top: auto; padding-top: 1rem;">
-                                            <span class="duration-badge"><i class="far fa-clock"></i>
-                                                <?= htmlspecialchars($course['duration']) ?>
-                                            </span>
-                                            <a href="course_details.php?id=<?= $course['course_id'] ?>"
-                                                class="btn btn-primary btn-sm-icon"
-                                                style="width: auto; padding: 0.5rem 1rem; font-size: 0.9rem;">
-                                                Continue <i class="fas fa-play"
-                                                    style="margin-left: 0.5rem; font-size: 0.7rem;"></i>
-                                            </a>
+                                        <div class="card-footer-flex"
+                                            style="margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 1rem;">
+                                            <div
+                                                style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                                <span class="duration-badge"><i class="far fa-clock"></i>
+                                                    <?= htmlspecialchars($course['duration']) ?></span>
+                                                <a href="course_details.php?id=<?= $course['course_id'] ?>"
+                                                    class="btn btn-primary btn-sm-icon"
+                                                    style="width: auto; padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                                    <?= $course['progress_status'] === 'completed' ? 'Review' : 'Continue' ?> <i
+                                                        class="fas fa-play" style="margin-left: 0.5rem; font-size: 0.7rem;"></i>
+                                                </a>
+                                            </div>
+
+                                            <?php if ($course['progress_status'] === 'completed'): ?>
+                                                <a href="download_certificate.php?course_id=<?= $course['course_id'] ?>"
+                                                    class="btn btn-outline btn-full"
+                                                    style="padding: 0.6rem; font-size: 0.85rem; border-color: #00ffaa; color: #00ffaa;">
+                                                    <i class="fas fa-certificate"></i> Download Certificate
+                                                </a>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>

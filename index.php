@@ -10,6 +10,22 @@ require_once 'Form.php';
 if (file_exists('galleryModel.php')) {
     require_once 'galleryModel.php';
 }
+require_once 'Analytics.php';
+require_once 'Gamification.php';
+// Survival Checks - Prevent 500 Errors if files are missing
+$cacheFile = 'Cache.php';
+$hasCache = file_exists($cacheFile);
+if ($hasCache) {
+    require_once $cacheFile;
+    $cache = new Cache();
+}
+
+$analytics = new Analytics();
+$gamification = new Gamification();
+$analytics->trackView('Home');
+
+// --- OPTIMIZED FOR LOW-RESOURCE INDEXING ---
+// Landing page uses aggressive caching to prevent InfinityFree suspensions.
 
 $db = new Database();
 $site = new Site();
@@ -35,23 +51,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['join_club'])) {
     }
 }
 
-// Fetch Dynamic Content
-$about = $site->get('home_about');
-$boardIntro = $site->get('home_board_intro');
-$goals = $site->get('home_goals');
-$heroBadge = $site->get('hero_badge');
-$heroTitle = $site->get('hero_title');
-$heroSubtitle = $site->get('hero_subtitle');
-$headEvents = $site->get('header_events');
-$headRegs = $site->get('header_registrations');
-$headLead = $site->get('header_leadership');
-$headJoin = $site->get('header_join');
-$boardMembers = $boardModel->getAll();
-$bestMembers = $boardModel->getFeatured();
+// Try to load from Cache first
+$homeData = $cache->get('home_index_data');
 
-// Fetch Recent Session Records
-$recentRecords = $db->query("SELECT ce.*, c.title as course_title FROM course_extras ce JOIN courses c ON ce.course_id =
-c.id WHERE ce.type = 'record' ORDER BY ce.created_at DESC LIMIT 6")->fetchAll();
+if (!$homeData) {
+    // Fetch Dynamic Content
+    $homeData = [
+        'about' => $site->get('home_about'),
+        'boardIntro' => $site->get('home_board_intro'),
+        'goals' => $site->get('home_goals'),
+        'heroBadge' => $site->get('hero_badge'),
+        'heroTitle' => $site->get('hero_title'),
+        'heroSubtitle' => $site->get('hero_subtitle'),
+        'headEvents' => $site->get('header_events'),
+        'headRegs' => $site->get('header_registrations'),
+        'headLead' => $site->get('header_leadership'),
+        'headJoin' => $site->get('header_join'),
+        'boardMembers' => $boardModel->getAll(),
+        'bestMembers' => $boardModel->getFeatured()
+    ];
+    $cache->set('home_index_data', $homeData);
+}
+
+// Extract for local use
+extract($homeData);
+
+// Fetch Recent Session Records (Don't cache sensitive/changing records as long)
+try {
+    $recentRecords = $db->query("SELECT ce.*, c.title as course_title FROM course_extras ce JOIN courses c ON ce.course_id = c.id WHERE ce.type = 'record' AND c.is_hero = 1 ORDER BY ce.created_at DESC LIMIT 6")->fetchAll();
+} catch (Exception $e) {
+    $recentRecords = [];
+}
+// Fetch featured forms (Announcements/Registrations)
+try {
+    $featuredForms = $db->query("SELECT * FROM forms WHERE is_hero = 1 ORDER BY created_at DESC")->fetchAll();
+} catch (Exception $e) {
+    $featuredForms = [];
+}
 
 // Fetch Shuffled Gallery for Slideshow
 $shuffleGallery = ($galleryModel) ? $galleryModel->getGlobalShuffle(20) : [];
@@ -87,7 +123,7 @@ $shuffleGallery = ($galleryModel) ? $galleryModel->getGlobalShuffle(20) : [];
         content="Join the leading technical community at MIU. Workshops, events, and a network of passionate innovators.">
     <meta name="twitter:image" content="https://ieeemiu.org/assets/og-image.jpg">
 
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=<?= time() ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         /* Living Mosaic Styles */
@@ -103,7 +139,7 @@ $shuffleGallery = ($galleryModel) ? $galleryModel->getGlobalShuffle(20) : [];
 
         .mosaic-item {
             position: relative;
-            border-radius: var(--border-radius-lg);
+            border-radius: var(--radius-lg);
             overflow: hidden;
             border: 1px solid var(--glass-border);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
@@ -203,7 +239,7 @@ $shuffleGallery = ($galleryModel) ? $galleryModel->getGlobalShuffle(20) : [];
                     </div>
                 <?php elseif (!empty($shuffleGallery)): ?>
                     <div class="mosaic-item active"
-                        style="width: 100%; height: 100%; border-radius: var(--border-radius-lg); overflow: hidden;">
+                        style="width: 100%; height: 100%; border-radius: var(--radius-lg); overflow: hidden;">
                         <img src="<?= htmlspecialchars($shuffleGallery[0]['image_path']) ?>"
                             style="width: 100%; height: 100%; object-fit: cover;">
                     </div>
@@ -222,6 +258,50 @@ $shuffleGallery = ($galleryModel) ? $galleryModel->getGlobalShuffle(20) : [];
             <div class="glass-panel info-card">
                 <div class="icon-box"><i class="fas fa-bullseye"></i></div>
                 <?= $goals ?>
+            </div>
+        </section>
+
+        <!-- Hall of Fame Section -->
+        <section class="hall-of-fame glass-panel container-slim premium-entry" style="margin-top: 4rem; padding: 4rem;">
+            <div class="section-header-centered">
+                <span class="badge secondary">COMMUNITY</span>
+                <h2 class="text-gradient">Hall of Fame</h2>
+                <p>Celebrating our top-performing students and active contributors.</p>
+            </div>
+
+            <div class="fame-grid">
+                <?php
+                $fame = $gamification->getLeaderboard(4);
+                $ranks = ['gold', 'silver', 'bronze', 'contributor'];
+                ?>
+                <?php foreach ($fame as $index => $hero): ?>
+                    <div class="fame-card glass-panel <?= $ranks[$index] ?? 'contributor' ?>">
+                        <div class="fame-rank-icon">
+                            <?php if ($index === 0): ?><i class="fas fa-crown"></i>
+                            <?php elseif ($index === 1): ?><i class="fas fa-award"></i>
+                            <?php elseif ($index === 2): ?><i class="fas fa-medal"></i>
+                            <?php else: ?><i class="fas fa-star"></i><?php endif; ?>
+                        </div>
+                        <h3 class="fame-name"><?= htmlspecialchars($hero['username']) ?></h3>
+                        <div class="fame-stats">
+                            <span><i class="fas fa-certificate"></i> <?= $hero['courses_completed'] ?> Courses</span>
+                            <span><i class="fas fa-calendar-check"></i> <?= $hero['events_attended'] ?> Events</span>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+                <?php if (empty($fame)): ?>
+                    <p style="grid-column: 1/-1; text-align: center; color: var(--text-muted);">The legend begins with you.
+                        Start learning today!</p>
+                <?php endif; ?>
+            </div>
+
+            <div style="text-align: center; margin-top: 3rem;">
+                <?php if (isset($_SESSION['student_logged_in'])): ?>
+                    <a href="courses.php" class="btn btn-primary">Start Earning Points <i class="fas fa-rocket"></i></a>
+                <?php else: ?>
+                    <a href="student_register.php" class="btn btn-primary">Join the Leaderboard <i
+                            class="fas fa-arrow-right"></i></a>
+                <?php endif; ?>
             </div>
         </section>
 
@@ -254,15 +334,17 @@ $shuffleGallery = ($galleryModel) ? $galleryModel->getGlobalShuffle(20) : [];
         <?php endif; ?>
 
         <!-- Open Registrations -->
-        <?php $forms = $formModel->getAll(); ?>
+        <?php $forms = $db->query("SELECT * FROM forms WHERE type != 'exam' ORDER BY created_at DESC")->fetchAll(); ?>
         <?php if (!empty($forms)): ?>
             <section class="section-container">
                 <div class="section-header">
                     <h2 class="section-title"><?= $headRegs ?></h2>
                 </div>
-                <div class="info-grid">
-                    <?php foreach ($forms as $form): ?>
-                        <a href="view_form.php?id=<?= $form['id'] ?>" class="glass-panel registration-card">
+                        <div class="info-grid">
+                            <?php 
+                            $displayForms = !empty($featuredForms) ? $featuredForms : $forms;
+                            foreach ($displayForms as $form): ?>
+                                <a href="view_form.php?id=<?= $form['id'] ?>" class="glass-panel registration-card">
                             <div class="reg-accent"></div>
                             <div>
                                 <h3><?= htmlspecialchars($form['title']) ?></h3>
@@ -507,7 +589,7 @@ $shuffleGallery = ($galleryModel) ? $galleryModel->getGlobalShuffle(20) : [];
             width: 60px;
             height: 60px;
             background: var(--glass-bg-bright);
-            border-radius: 16px;
+            border-radius: var(--radius-lg);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -617,7 +699,7 @@ $shuffleGallery = ($galleryModel) ? $galleryModel->getGlobalShuffle(20) : [];
         .board-card {
             padding: 0;
             text-align: center;
-            border-radius: var(--border-radius-lg);
+            border-radius: var(--radius-lg);
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
             position: relative;
             overflow: hidden;
@@ -811,7 +893,7 @@ $shuffleGallery = ($galleryModel) ? $galleryModel->getGlobalShuffle(20) : [];
 
         .alert {
             padding: 1rem 1.5rem;
-            border-radius: 12px;
+            border-radius: var(--radius-lg);
             margin-bottom: 2rem;
             display: flex;
             align-items: center;
