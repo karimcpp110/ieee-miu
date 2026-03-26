@@ -1,9 +1,9 @@
 # IEEE MIU Student Branch Platform 🚀
 **The Ultimate Hybrid Learning & Community Ecosystem**
 
-[![State](https://img.shields.io/badge/Status-Scale--Ready-00ffa3?style=for-the-badge&logo=rocket)](https://ieee-miu-portal.web.app)
-[![Tech](https://img.shields.io/badge/Tech-React_%7C_PHP_%7C_Firebase-blue?style=for-the-badge)](https://github.com/karimcpp110/ieee-miu)
-[![Performance](https://img.shields.io/badge/Performance-Optimized-orange?style=for-the-badge&logo=speedtest)](https://ieee-miu-portal.web.app)
+[![Status](https://img.shields.io/badge/Status-Production-00ffa3?style=for-the-badge&logo=rocket)](https://ieeemiu-portal.rf.gd)
+[![Tech](https://img.shields.io/badge/Tech-PHP_%7C_MySQL_%7C_InfinityFree-blue?style=for-the-badge)](https://github.com/karimcpp110/ieee-miu)
+[![Performance](https://img.shields.io/badge/Performance-Optimized-orange?style=for-the-badge&logo=speedtest)](https://ieeemiu-portal.rf.gd)
 
 ---
 
@@ -45,6 +45,10 @@ This platform represents a breakthrough in student community engineering. It is 
     - **Smart Placeholders**: Automatically injects `[Score]`, `[Percentage]`, `[Status]`, and `[Course Title]` into templates.
     - **Conditional Logic**: Delivers different email templates based on whether the student passed or failed.
 - 📢 **Admin Email Broadcast Engine**: A new administrative tool to send mass communications. Instructors can input a list of recipients and blast an email template to the entire group instantly using the internal SMTP queue.
+- 📊 **Advanced Exam Analytics**: A full diagnostic dashboard (`exam_analytics.php`) that lets instructors see question-level success rates, identify bottleneck questions (failure rate > 50%), and track the most common incorrect answers across all submissions.
+- 🎓 **Student Achievement Hub**: Public-facing student profiles (`profile.php`) showcasing earned badges, mastery levels (Novice → Master), and verified certifications. Includes a one-click **"Add to LinkedIn"** button for every certificate.
+- 🔗 **Public Certificate Verification**: An external endpoint (`verify_certificate.php`) that allows anyone to verify the authenticity of an IEEE MIU certificate via a unique link.
+- 🔐 **Student Privacy Controls**: A built-in toggle in the student dashboard allowing members to set their profile to Public or Private.
 - 🚀 **Stabilized Admin Experience**: Unified tab management logic and optimized "Edit/Create" workflows, ensuring a seamless experience for instructors managing global content across InfinityFree's specific hosting constraints.
 
 ### 🏗️ The Core (Original Built-from-Scratch Logic)
@@ -56,17 +60,12 @@ This platform represents a breakthrough in student community engineering. It is 
 
 ---
 
-## 🏗️ Technical Architecture
-
-### **The Modern Stack**
-> **Frontend**: React 18, TypeScript, Tailwind CSS, Framer Motion  
-> **Backend Service**: Google Firebase (Auth, Firestore, Hosting)  
-> **Interactivity**: Real-time Webhooks & Observers
-
-### **The Legacy Stack**
-> **Logic**: PHP 8.1 with Custom PDO abstraction  
+### **The Stack**
+> **Logic**: PHP 8.1 with Custom PDO Abstraction  
 > **Database**: MariaDB / MySQL (Optimized Query Engine)  
-> **Tooling**: PHPMailer, FPDF (PDF Logic), Gamification Engines
+> **Hosting**: InfinityFree (Production)  
+> **Tooling**: PHPMailer, FPDF (PDF Logic), Gamification Engines  
+> **Frontend**: Vanilla CSS3, ES6+ JavaScript, Font Awesome
 
 ---
 
@@ -80,24 +79,19 @@ This platform represents a breakthrough in student community engineering. It is 
 
 ## ⚙️ Setup & Deployment
 
-### **React Portal**
-```bash
-cd portal-beta
-npm install
-npm run deploy
-```
-
-### **Legacy PHP Platform**
-1.  Upload the contents of `htdocs/` and the newly created `lib/` directory.
-2.  The system will automatically perform **Self-Healing** upon your first admin login.
-3.  Ensure SMTP credentials are set in `EmailQueue.php`.
+### **PHP Platform (InfinityFree)**
+1.  Upload all PHP files to your InfinityFree `htdocs/` directory.
+2.  Import `database_setup.sql` into your MySQL database via phpMyAdmin.
+3.  The system will automatically perform **Self-Healing** upon your first admin login via `db_repair.php`.
+4.  Ensure SMTP credentials are set in `EmailQueue.php`.
 
 ---
 
 ## 🚀 Future Roadmap
+- [x] **Advanced Exam Analytics Dashboard**: Question-level performance insights for instructors.
+- [x] **Student Achievement Hub**: Public profiles with LinkedIn certification integration.
 - [ ] **AI Course Assistant**: Dynamic tutoring based on course transcripts.
-- [ ] **Mobile App Integration**: Native iOS/Android apps via React Native.
-- [ ] **Advanced Analytics Dashboard**: Visualizing student progress with Chart.js.
+- [ ] **Mobile App Integration**: Native iOS/Android apps.
 
 ---
 
