@@ -9,6 +9,7 @@ node_modules/
 *-adminsdk-*.json
 *firebase-adminsdk*.json
 serviceAccountKey.json
+firebase-config.js
 
 # Firebase Beta (not for production yet)
 portal-beta/
