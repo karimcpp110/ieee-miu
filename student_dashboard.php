@@ -37,6 +37,16 @@ $studentProfile = $db->query("SELECT * FROM students WHERE id = ?", [$studentId]
 $studentUniversityId = $studentProfile ? ($studentProfile['student_id'] ?? 'Not set') : 'Not set';
 $joinDate = $studentProfile ? ($studentProfile['created_at'] ?? 'now') : 'now';
 
+// Handle Privacy Toggle Form Submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_privacy'])) {
+    $currentStatus = $studentProfile && isset($studentProfile['is_public']) ? (int)$studentProfile['is_public'] : 1;
+    $newStatus = $currentStatus ? 0 : 1;
+    $db->query("UPDATE students SET is_public = ? WHERE id = ?", [$newStatus, $studentId]);
+    header("Location: student_dashboard.php");
+    exit;
+}
+$isPublic = $studentProfile && isset($studentProfile['is_public']) ? (bool)$studentProfile['is_public'] : true;
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -90,7 +100,21 @@ $joinDate = $studentProfile ? ($studentProfile['created_at'] ?? 'now') : 'now';
                         </div>
                     </div>
 
-                    <a href="courses.php" class="btn btn-outline btn-full" style="margin-top: 1.5rem;">
+                    <a href="profile.php?id=<?= $studentId ?>" class="btn btn-primary btn-full" style="margin-top: 1.5rem;" target="_blank">
+                        <i class="fas fa-external-link-alt"></i> View Public Profile
+                    </a>
+
+                    <form method="POST" style="margin-top: 1rem;">
+                        <input type="hidden" name="toggle_privacy" value="1">
+                        <button type="submit" class="btn btn-outline btn-full" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span><i class="fas <?= $isPublic ? 'fa-eye' : 'fa-eye-slash' ?>"></i> Profile Visibility</span>
+                            <span class="status-badge" style="background: <?= $isPublic ? 'rgba(0,255,170,0.1)' : 'rgba(255,71,87,0.1)' ?>; color: <?= $isPublic ? '#00ffaa' : '#ff4757' ?>; border: none; padding: 2px 8px; font-size: 0.7rem;">
+                                <?= $isPublic ? 'PUBLIC' : 'PRIVATE' ?>
+                            </span>
+                        </button>
+                    </form>
+
+                    <a href="courses.php" class="btn btn-outline btn-full" style="margin-top: 1rem; border-color: rgba(255,255,255,0.1); color: var(--text-muted);">
                         <i class="fas fa-search"></i> Browse Courses
                     </a>
                 </div>

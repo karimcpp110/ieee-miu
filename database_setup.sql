@@ -110,6 +110,8 @@ CREATE TABLE IF NOT EXISTS `forms` (
   `title` varchar(255) NOT NULL,
   `description` text,
   `fields_json` text NOT NULL,
+  `automation_email_subject` varchar(255) DEFAULT NULL,
+  `automation_email_template` text DEFAULT NULL,
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

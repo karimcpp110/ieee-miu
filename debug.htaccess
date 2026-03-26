@@ -1,0 +1,13 @@
+# Ultra-Safe .htaccess
+RewriteEngine On
+RewriteBase /
+
+# Force trailing slash
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^(.+[^/])$ /$1/ [R=301,L]
+
+# Basic PHP Handling
+<FilesMatch "\.php$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>

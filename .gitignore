@@ -4,3 +4,11 @@ uploads/
 vendor/
 node_modules/
 *.log
+
+# Firebase Secrets
+*-adminsdk-*.json
+*firebase-adminsdk*.json
+serviceAccountKey.json
+
+# Firebase Beta (not for production yet)
+portal-beta/

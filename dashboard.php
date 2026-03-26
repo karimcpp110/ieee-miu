@@ -1744,10 +1744,16 @@ $headJoin = $site->get('header_join');
                                         <td class="primary-td"><?= htmlspecialchars($e['title']) ?></td>
                                         <td class="date-td"><?= date('M d, Y', strtotime($e['created_at'])) ?></td>
                                         <td>
-                                            <a href="form_responses.php?id=<?= $e['id'] ?>" class="badge-exam"
-                                                style="text-decoration: none;">
-                                                View Results
-                                            </a>
+                                            <div style="display:flex; gap:8px; align-items:center;">
+                                                <a href="form_responses.php?id=<?= $e['id'] ?>" class="badge-exam"
+                                                    style="text-decoration: none;">
+                                                    <i class="fas fa-list-ul"></i> Results
+                                                </a>
+                                                <a href="exam_analytics.php?id=<?= $e['id'] ?>" class="badge-exam"
+                                                    style="text-decoration: none; background: linear-gradient(135deg, #00f3ff, #0077ff);">
+                                                    <i class="fas fa-chart-pie"></i> Analytics
+                                                </a>
+                                            </div>
                                         </td>
                                         <td class="text-right">
                                             <div class="actions-group">
@@ -1755,6 +1761,9 @@ $headJoin = $site->get('header_join');
                                                     onclick='editExamCall(<?= $e['id'] ?>, <?= json_encode($e['title']) ?>, <?= json_encode($e['description']) ?>, <?= json_encode($e['fields_json']) ?>)'>
                                                     <i class="fas fa-pen"></i>
                                                 </button>
+                                                <a href="exam_analytics.php?id=<?= $e['id'] ?>" class="btn btn-icon btn-secondary" title="View Analytics">
+                                                    <i class="fas fa-chart-bar"></i>
+                                                </a>
                                                 <a href="view_form.php?id=<?= $e['id'] ?>" target="_blank"
                                                     class="btn btn-icon btn-view" title="Preview Exam"><i
                                                         class="fas fa-external-link-alt"></i></a>
