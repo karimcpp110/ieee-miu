@@ -21,28 +21,48 @@ $fields = json_decode($form['fields_json'], true);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = [];
     $respondentEmail = null;
+
+    // --- Rebuild the shuffled index order from POST ---
+    // The form renders questions using a shuffled order stored in hidden input.
+    // We read the submitted shuffle_map to know which display-position (idx_loop)
+    // corresponds to each original field index, so grading keys match.
+    $shuffleMapRaw = $_POST['shuffle_map'] ?? '';
+    $shuffleMap = []; // original_idx => display_idx (idx_loop)
+    if (!empty($shuffleMapRaw)) {
+        foreach (explode(',', $shuffleMapRaw) as $pos => $origIdx) {
+            $shuffleMap[(int)$origIdx] = (int)$pos;
+        }
+    } else {
+        // No shuffle map (non-exam form) — identity mapping
+        foreach (array_keys($fields) as $pos => $origIdx) {
+            $shuffleMap[$origIdx] = $origIdx;
+        }
+    }
+
     foreach ($fields as $idx => $field) {
         $key = str_replace(' ', '_', strtolower($field['label']));
         $value = '';
+        // Use the display position as the POST key
+        $postIdx = $shuffleMap[$idx] ?? $idx;
 
         if ($field['type'] === 'mcq') {
-            $ansIdx = $_POST["q_$idx"] ?? null;
+            $ansIdx = $_POST["q_$postIdx"] ?? null;
             if ($ansIdx !== null && isset($field['options'][$ansIdx])) {
                 $value = $field['options'][$ansIdx]['text'];
             }
         } elseif ($field['type'] === 'true_false') {
-            $value = $_POST["q_$idx"] ?? '';
+            $value = $_POST["q_$postIdx"] ?? '';
         } elseif ($field['type'] === 'short_answer') {
-            $value = $_POST["q_$idx"] ?? '';
+            $value = $_POST["q_$postIdx"] ?? '';
         } elseif ($field['type'] === 'matching') {
             $matches = [];
             foreach ($field['pairs'] as $pIdx => $pair) {
-                $target = $_POST["match_{$idx}_{$pIdx}"] ?? 'Unmatched';
+                $target = $_POST["match_{$postIdx}_{$pIdx}"] ?? 'Unmatched';
                 $matches[] = $pair['prompt'] . " -> " . $target;
             }
             $value = implode(' | ', $matches);
         } elseif ($field['type'] === 'ordering') {
-            $value = $_POST["order_$idx"] ?? '';
+            $value = $_POST["order_$postIdx"] ?? '';
         } else {
             $value = $_POST[$key] ?? '';
         }
@@ -297,7 +317,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
-                                        // Include the session API key if generated, mostly handled by cookies though
+                                        'Authorization': 'Bearer <?= $_SESSION["student_api_key"] ?? "" ?>'
                                     },
                                     body: JSON.stringify({
                                         scorePercentage: score,
@@ -349,6 +369,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($form['type'] === 'exam') {
                         shuffle($shuffledIndexes);
                     }
+                    ?>
+                    <!-- Hidden field carries the shuffle order so the grader can decode POST keys -->
+                    <input type="hidden" name="shuffle_map" value="<?= implode(',', $shuffledIndexes) ?>">
+                    <?php
                     foreach ($shuffledIndexes as $idx_loop): 
                         $field = $fields[$idx_loop];
                         $fieldName = str_replace(' ', '_', strtolower($field['label'])); 

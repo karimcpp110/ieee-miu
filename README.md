@@ -211,3 +211,36 @@ MIT License
 ---
 ## 🔍 Keywords
 LMS, Learning Management System, PHP LMS, Student Portal, Exam System, Automated Grading, Education Platform, IEEE, Full Stack Project
+
+---
+
+## 🔧 Changelog
+
+### v2.3 — April 6, 2026 (Navigation, Scoring & Auth Hardening)
+
+#### 🧭 Unified Navigation Sidebar
+- Added **Home**, **Board**, and **Gallery** navigation links to the student sidebar (`student_sidebar.php`) for a consistent, one-click experience across all portal sections.
+- Active page highlighting implemented via PHP `basename()` detection.
+
+#### 🎯 Exam Score Bug Fix (Shuffle-Index Mismatch)
+- **Root Cause**: The exam form shuffled questions into a random display order during rendering, but the backend grader was reading POST keys using the *original* (unshuffled) field indexes — causing every answer to appear blank, resulting in a score of **0/25** regardless of actual answers.
+- **Fix**: Introduced a hidden `shuffle_map` input that serialises the shuffled display order on render. The grader now deserialises this map on POST to correctly match each submitted answer to its original question definition before evaluation.
+
+#### 🔐 Admin Login — Self-Contained Rewrite
+- **Root Cause 1 (HTTP 500)**: `Auth.php` called `session_start()` unconditionally at file scope. When `login.php` included it after output had begun, PHP threw a fatal headers-already-sent error → blank 500 page.
+- **Root Cause 2 (Database Error)**: The `login_attempts` table query used raw PDO without a safety net. If the table doesn't exist on the server, it threw an unhandled `PDOException` → "Database error" on every login attempt.
+- **Fix**: Rewrote `login.php` as a **fully self-contained** file with:
+  - No `Auth.php` class dependency — zero risk of cascading include failures.
+  - Guarded `session_start()` using `session_status() === PHP_SESSION_NONE`.
+  - All ancillary queries (`login_attempts`, `user_stats`, `api_key` update) individually wrapped in `try/catch` — they fail silently if tables are missing.
+  - Only the core `SELECT * FROM users` query can produce a visible error, and it now shows the **exact MySQL message** for faster debugging.
+
+#### 🤖 AI Tutor — Authorization Fix
+- **Root Cause**: `view_form.php` was calling `api/v1/ai_assistant.php` without an `Authorization: Bearer` header. The API correctly rejected it with 401 Unauthorized, which the JavaScript `.catch()` block surfaced as *"AI Tutor connection failed."*
+- **Fix**: The student's session API key (`$_SESSION["student_api_key"]`) is now injected directly into the fetch request header at render time, authenticating every AI feedback call automatically.
+
+#### 🎨 CSS Stability
+- Renamed portal stylesheet to `portal-style.css` and embedded versioned cache-busting (`?v=<?= time() ?>`) across all portal PHP files to prevent InfinityFree/Cloudflare edge caches from serving stale styles.
+
+#### 📦 Deployment
+- All fixes are bundled into a single `ieee_update.zip` for one-click **Upload & Unzip** deployment via the InfinityFree File Manager — no FTP required.
