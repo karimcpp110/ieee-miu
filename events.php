@@ -22,7 +22,7 @@ $headEvents = $site->get('header_events');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Future Timeline - IEEE MIU</title>
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="portal-style.css?v=<?= time() ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body {

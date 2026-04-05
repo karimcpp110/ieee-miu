@@ -770,7 +770,7 @@ $headJoin = $site->get('header_join');
 <head>
     <meta charset="UTF-8">
     <title>Admin Dashboard - IEEE MIU</title>
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="portal-style.css?v=<?= time() ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         /* Switch Toggle */
@@ -2886,7 +2886,7 @@ $headJoin = $site->get('header_join');
             const container = document.getElementById('conditions-container');
             if (!container) return;
             const div = document.createElement('div');
-            div.style.cssText = "display: grid; grid-template-columns: 2fr 1fr 2fr 2fr auto; gap: 0.5rem; align-items: end; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px dashed rgba(255,255,255,0.1);";
+            div.portal-style.css?v=<?= time() ?>Text = "display: grid; grid-template-columns: 2fr 1fr 2fr 2fr auto; gap: 0.5rem; align-items: end; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px dashed rgba(255,255,255,0.1);";
 
             const f = data ? data.field : '';
             const o = data ? data.operator : '==';

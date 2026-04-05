@@ -41,7 +41,7 @@ $myCourses = $db->query($sql, [$studentId])->fetchAll();
         .sidebar-nav a { display: flex; align-items: center; gap: 1rem; padding: 0.8rem 1.2rem; color: var(--text-muted); text-decoration: none; border-radius: 12px; }
         .sidebar-nav li.active a { background: rgba(139, 92, 246, 0.1); color: var(--portal-accent); }
     </style>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="portal-style.css?v=<?= time() ?>">
 </head>
 <body class="portal-body">
     <div class="portal-layout">

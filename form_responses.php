@@ -189,7 +189,7 @@ foreach ($fields as $f) {
 <head>
     <meta charset="UTF-8">
     <title>Responses: <?= htmlspecialchars($form['title']) ?> - IEEE MIU</title>
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="portal-style.css?v=<?= time() ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .status-select {

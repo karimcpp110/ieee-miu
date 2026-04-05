@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <title>Reset Password - IEEE MIU</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="portal-style.css?v=<?= time() ?>">
 </head>
 
 <body class="auth-page">

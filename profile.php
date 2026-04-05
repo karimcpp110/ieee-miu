@@ -42,7 +42,7 @@ if (!(bool)$student['is_public']) {
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Private Profile - IEEE MIU</title>
-            <link rel="stylesheet" href="style.css">
+            <link rel="stylesheet" href="portal-style.css?v=<?= time() ?>">
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
         </head>
         <body class="dashboard-page" style="display:flex; justify-content:center; align-items:center; height:100vh;">
@@ -87,7 +87,7 @@ $completedCourses = $db->query("
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($student['full_name']) ?> - Student Profile | IEEE MIU</title>
-    <link rel="stylesheet" href="style.css?v=21">
+    <link rel="stylesheet" href="portal-style.css?v=<?= time() ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .profile-hero {

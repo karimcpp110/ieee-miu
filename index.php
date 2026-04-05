@@ -123,7 +123,7 @@ $shuffleGallery = ($galleryModel) ? $galleryModel->getGlobalShuffle(20) : [];
         content="Join the leading technical community at MIU. Workshops, events, and a network of passionate innovators.">
     <meta name="twitter:image" content="https://ieeemiu.org/assets/og-image.jpg">
 
-    <link rel="stylesheet" href="style.css?v=<?= time() ?>">
+    <link rel="stylesheet" href="portal-style.css?v=<?= time() ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         /* Living Mosaic Styles */

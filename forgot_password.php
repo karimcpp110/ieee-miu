@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <title>Forgot Password - IEEE MIU</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="portal-style.css?v=<?= time() ?>">
 </head>
 
 <body class="auth-page">

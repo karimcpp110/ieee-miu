@@ -107,7 +107,7 @@ $upcomingEvents = $eventModel->getUpcoming();
         .portal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
     </style>
     <!-- External CSS Link still provided for extra styles -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="portal-style.css?v=<?= time() ?>">
 </head>
 <body class="portal-body">
     <div class="portal-layout">
