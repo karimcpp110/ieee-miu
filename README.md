@@ -11,13 +11,6 @@
 
 🌐 **Live Platform**: [https://ieeemiu-portal.rf.gd](https://ieeemiu-portal.rf.gd)
 
-### 📸 Screenshots
-*(Coming Soon: Add high-quality screenshots here)*
-- Dashboard
-- Exam UI
-- Analytics Page
-- Certificate
-
 ---
 
 ## 💡 The Problem
